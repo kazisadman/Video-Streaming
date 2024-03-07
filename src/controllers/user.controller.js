@@ -24,8 +24,12 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   // Uploads the avatar and cover image on Cloudinary. This is a no - op if there is no image
-  const avatarLocalPath = req.file?.avatar[0]?.path;
-  const coverImageLocalPath = req.file?.coverImage[0]?.path;
+  const avatarLocalPath = req.files?.avatar[0]?.path;
+  let coverImageLocalPath;
+
+  if (req.files?.coverImage && req.files.coverImage.lenght > 0) {
+    coverImageLocalPath = req.files.coverImage[0].path;
+  }
 
   if (!avatarLocalPath) {
     throw new apiError(400, "Avatar file is missing!");
