@@ -13,12 +13,13 @@ app.use(
 
 // Limit the number of results to 20KB by default. This is to avoid hitting the server every time
 app.use(express.json({ limit: "20kb" }));
-
 app.use(express.urlencoded({ extended: true, limit: "20kb" }));
-
 app.use(express.static("public"));
-
-// Use cookieParser to parse cookies.
 app.use(cookieParser());
+
+//import routes
+import userRouter from "./routes/user.routes.js";
+
+app.use('/api/v1/users',userRouter)
 
 export { app };
