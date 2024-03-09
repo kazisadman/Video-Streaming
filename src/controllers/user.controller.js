@@ -66,7 +66,7 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, userCreated, "User registered successfully!"));
 });
 
-// Logs in a user with the given username or email and password. This is the entry point for API calls
+// Logs in user with the given username or email and password. This is the entry point for API calls
 const loginUser = asyncHandler(async (req, res) => {
   // Generates access and refresh tokens for the user with the given ID.
   const generateAccessAndRefreshToken = async (userId) => {
@@ -143,7 +143,7 @@ const loginUser = asyncHandler(async (req, res) => {
     );
 });
 
-// Logs out a user.
+// Logs out user.
 const logOutUser = asyncHandler(async (req, res) => {
   // Updates the refresh token in db.
   const userId = req.user._id;
@@ -172,7 +172,7 @@ const logOutUser = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, {}, "User logged out successfully"));
 });
 
-// Refresh a user's access token.
+// Refresh user's access token.
 const refreshAccessToken = asyncHandler(async (req, res) => {
   try {
     const incomingRefreshToken =
@@ -223,4 +223,131 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-export { registerUser, loginUser, logOutUser, refreshAccessToken };
+// Changes the current password.
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const user = req.user;
+
+  const matchedUser = await User.findById(user._id);
+
+  const isPasswordCorrect = await matchedUser.isPasswordCorrect(oldPassword);
+
+  if (!isPasswordCorrect) {
+    throw new apiError(400, "Invalid Password");
+  }
+
+  matchedUser.password = newPassword;
+  matchedUser.save({ validateBeforeSave: false });
+
+  res
+    .status(200)
+    .json(new apiResponse(200, {}, "Password changed successfully"));
+});
+
+// Fetches logged in user data from database
+const loggedInUserData = asyncHandler(async (req, res) => {
+  const user = req.user;
+
+  res
+    .status(200)
+    .json(new apiResponse(200, user, "Loggedin user data fetched"));
+});
+
+// Updates the user's account details. This is a POST request to / v1 / user / : id
+const updateAccountsDetails = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body;
+
+  if (!fullName || !email) {
+    throw new apiError(400, "Fullname or email missing");
+  }
+
+  // Updates user data in databse. Returns user data without 'passoword' field
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        fullName,
+        email,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  res
+    .status(200)
+    .json(new apiResponse(200, user, "Account updated successfully"));
+});
+
+// Update the user's avatar. This is called when we get a POST request from the user's web app
+const updateAvatarImage = asyncHandler(async (req, res) => {
+  // Uploads the avatar to the cloudinary
+  const avatarLocalPath = req.file?.path;
+
+  if (!avatarLocalPath) {
+    throw new apiError(400, "Avatar file not found");
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!avatar.url) {
+    throw new apiError(400, "Error while uploading avatar");
+  }
+
+  // Updates the user's avatar url in database
+  await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  res
+    .status(200)
+    .json(new apiResponse(200, {}, "Avatar image is updated successfully"));
+});
+
+// Update the user's coverImage. This is called when we get a POST request from the user's web app
+const updatecoverImage = asyncHandler(async (req, res) => {
+  // Uploads the coverImage to the cloudinary
+  const coverImageLocalPath = req.file?.path;
+
+  if (!coverImageLocalPath) {
+    throw new apiError(400, "coverImage file not found");
+  }
+
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+  if (!coverImage.url) {
+    throw new apiError(400, "Error while uploading coverImage");
+  }
+
+  // Updates the user's coverImage url in database
+  await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        coverImage: coverImage.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  res
+    .status(200)
+    .json(new apiResponse(200, {}, "cover image is updated successfully"));
+});
+
+export {
+  registerUser,
+  loginUser,
+  logOutUser,
+  refreshAccessToken,
+  changeCurrentPassword,
+  loggedInUserData,
+  updateAccountsDetails,
+  updateAvatarImage,
+  updatecoverImage,
+};
