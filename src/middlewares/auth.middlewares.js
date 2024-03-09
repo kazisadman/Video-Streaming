@@ -1,6 +1,6 @@
-import { User } from "../models/user.models";
-import { apiError } from "../utils/apiError";
-import { asyncHandler } from "../utils/asyncHandler";
+import { User } from "../models/user.models.js";
+import { apiError } from "../utils/apiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken";
 
 // Verifies the access token in the request and authenticates the user
@@ -18,6 +18,7 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
     // Checks if the access token is valid and authenticates the user
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
+    //Returns matched user data from db without 'password' and 'refresh_token' field
     const user = await User.findById(decodedToken?._id).select(
       "-password -refresh_token"
     );
@@ -27,6 +28,7 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
     }
 
     req.user = user;
+    
     next();
   } catch (error) {
     throw new apiError(401, "Unauthorized request");

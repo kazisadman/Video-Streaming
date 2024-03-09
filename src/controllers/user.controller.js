@@ -3,6 +3,7 @@ import { apiError } from "../utils/apiError.js";
 import { User } from "../models/user.models.js";
 import { uploadOnCloudinary } from "../utils/fileupload.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import jwt from "jsonwebtoken";
 
 // Registers a user with Cloudinary. This is the entry point for user registration
 const registerUser = asyncHandler(async (req, res) => {
@@ -71,8 +72,8 @@ const loginUser = asyncHandler(async (req, res) => {
   const generateAccessAndRefreshToken = async (userId) => {
     try {
       const user = await User.findById(userId);
-      const accessToken = userId.generateAccessToken();
-      const refreshToken = userId.generateRefreshToken();
+      const accessToken = user.generateAccessToken();
+      const refreshToken = user.generateRefreshToken();
 
       user.refresh_token = refreshToken;
       await user.save({ validateBeforeSave: false });
@@ -89,7 +90,7 @@ const loginUser = asyncHandler(async (req, res) => {
   // Given a username or email and password find the user in the database and return it. If there is no match return 404
   const { email, password, userName } = req.body;
 
-  if (!userName || !email) {
+  if (!(userName || email)) {
     throw new apiError(400, "Username or Email is missing");
   } else if (!password) {
     throw new apiError(400, "Password is missing");
@@ -114,14 +115,14 @@ const loginUser = asyncHandler(async (req, res) => {
     matchedUser._id
   );
 
-  // Selects the user that matched the user and give the user data without password and refresh_token field.
+  //Returns matched user data from db without 'password' and 'refresh_token' field
   const loggedInUser = await User.findById(matchedUser._id).select(
     "-password -refresh_token"
   );
 
   const options = {
     httpOnly: true,
-    secure: ture,
+    secure: true,
   };
 
   // Send response to user. This is called when user logs in successfully
@@ -168,7 +169,58 @@ const logOutUser = asyncHandler(async (req, res) => {
     .status(200)
     .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
-    .json(new apiResponse(200, "User logged out"));
+    .json(new apiResponse(200, {}, "User logged out successfully"));
 });
 
-export { registerUser, loginUser, logOutUser };
+// Refresh a user's access token.
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  try {
+    const incomingRefreshToken =
+      req.cookies?.refreshToken || req.body?.refreshToken;
+
+    if (!incomingRefreshToken) {
+      throw new apiError(401, "Unauthorized request");
+    }
+
+    // Verifies and extracts the refresh token from the incoming token.
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const matchedUser = await User.findById(decodedToken._id);
+
+    if (matchedUser?.refresh_token !== incomingRefreshToken) {
+      throw new apiError(401, "Invalid refresh token");
+    }
+
+    // Generates new access and refresh tokens for the user and saves refresh token in the database.
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      matchedUser._id
+    );
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json(
+        new apiResponse(
+          200,
+          {
+            accessToken,
+            refreshToken,
+          },
+          "Access token refreshed"
+        )
+      );
+  } catch (error) {
+    throw new apiError(401, error?.message || "Invalid refresh token");
+  }
+});
+
+export { registerUser, loginUser, logOutUser, refreshAccessToken };
