@@ -340,6 +340,85 @@ const updatecoverImage = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, {}, "cover image is updated successfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { userName } = req.params;
+
+  if (!userName?.trim()) {
+    throw new apiError(400, "Username not found");
+  }
+
+  const channelInfo = await User.aggregate(
+    //Get all the data from "users" db which matches with the "userName" value
+    {
+      $match: {
+        userName: userName,
+      },
+    },
+    //Get all the data which matches 'users._id' and 'subscriptions.channel'
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    //Get all the data which matches 'users._id' and 'subscriptions.subscriber'
+
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    //Adds new field in 'users' db.
+    {
+      $addFields: {
+        //'size' count the total number of items in the array
+        subscriberCount: {
+          $size: "$subscribers",
+        },
+        channelSubscribedCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $con: {
+            //Here, if logged in user 'id' present in the 'user.subscribers.subscriber' field then its 'true' else 'false'.
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      //'project' return the field which have value '1'
+      $project: {
+        fullName: 1,
+        userName: 1,
+        subscriberCount: 1,
+        channelSubscribedCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1,
+      },
+    }
+  );
+
+  if (!channelInfo?.length) {
+    throw apiError(400, "Channel not found.");
+  }
+
+  res
+    .status(200)
+    .json(
+      new apiResponse(200, channelInfo[0], "Channel data fetched successfully")
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -350,4 +429,5 @@ export {
   updateAccountsDetails,
   updateAvatarImage,
   updatecoverImage,
+  getUserChannelProfile,
 };
