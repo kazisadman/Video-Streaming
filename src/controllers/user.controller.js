@@ -340,6 +340,7 @@ const updatecoverImage = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, {}, "cover image is updated successfully"));
 });
 
+// Get information about a user's channel profile.
 const getUserChannelProfile = asyncHandler(async (req, res) => {
   const { userName } = req.params;
 
@@ -419,6 +420,62 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     );
 });
 
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+
+  const user = await User.aggregate(
+    {
+      $match: {
+        _id: new mongoose.Schema.Types.ObjectId(userId),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    userName: 1,
+                    avatar: 1,
+                  },
+                },
+                {
+                  $addFields: {
+                    owner: {
+                      $first: "$owner",
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    }
+  );
+
+  res
+    .status(200)
+    .json(
+      new apiResponse(
+        200,
+        user[0].watchHistory,
+        "Watched history fetched successfully."
+      )
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -430,4 +487,5 @@ export {
   updateAvatarImage,
   updatecoverImage,
   getUserChannelProfile,
+  getWatchHistory,
 };
