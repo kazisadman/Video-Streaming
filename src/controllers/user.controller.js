@@ -4,6 +4,7 @@ import { User } from "../models/user.models.js";
 import { uploadOnCloudinary } from "../utils/fileupload.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 // Registers a user with Cloudinary. This is the entry point for user registration
 const registerUser = asyncHandler(async (req, res) => {
@@ -150,8 +151,8 @@ const logOutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     userId,
     {
-      $set: {
-        refresh_token: undefined,
+      $unset: {
+        refresh_token: 1,
       },
     },
     {
@@ -348,7 +349,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     throw new apiError(400, "Username not found");
   }
 
-  const channelInfo = await User.aggregate(
+  const channelInfo = await User.aggregate([
     //Get all the data from "users" db which matches with the "userName" value
     {
       $match: {
@@ -385,7 +386,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
           $size: "$subscribedTo",
         },
         isSubscribed: {
-          $con: {
+          $cond: {
             //Here, if logged in user 'id' present in the 'user.subscribers.subscriber' field then its 'true' else 'false'.
             if: { $in: [req.user?._id, "$subscribers.subscriber"] },
             then: true,
@@ -406,8 +407,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         coverImage: 1,
         email: 1,
       },
-    }
-  );
+    },
+  ]);
 
   if (!channelInfo?.length) {
     throw apiError(400, "Channel not found.");
@@ -420,13 +421,14 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     );
 });
 
+// Get watch history for a user.
 const getWatchHistory = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
 
-  const user = await User.aggregate(
+  const user = await User.aggregate([
     {
       $match: {
-        _id: new mongoose.Schema.Types.ObjectId(userId),
+        _id: new mongoose.Types.ObjectId(userId),
       },
     },
     {
@@ -462,8 +464,8 @@ const getWatchHistory = asyncHandler(async (req, res) => {
           },
         ],
       },
-    }
-  );
+    },
+  ]);
 
   res
     .status(200)
