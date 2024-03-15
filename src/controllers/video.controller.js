@@ -1,3 +1,4 @@
+import { isValidObjectId } from "mongoose";
 import { Video } from "../models/video.models.js";
 import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
@@ -29,7 +30,6 @@ const uploadVideo = asyncHandler(async (req, res) => {
     throw new apiError(500, "File not uploaded");
   }
 
-
   const videoData = await Video.create({
     title: title,
     description: description,
@@ -44,4 +44,77 @@ const uploadVideo = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, videoData, "Video uploaded successfully"));
 });
 
-export { uploadVideo };
+const getVideoById = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+
+  if (!isValidObjectId(videoId)) {
+    throw new apiError(404, "Video not found");
+  }
+
+  const video = await Video.findById(videoId);
+
+  res
+    .status(200)
+    .json(new apiResponse(200, video, "Video fetched successfully"));
+});
+
+const updateVideo = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+  const { title, description } = req.body;
+
+  if (
+    [title, description].some((input) => {
+      input?.trim() === "";
+    })
+  ) {
+    throw new apiError(400, "Invalid input");
+  }
+
+  if (!isValidObjectId(videoId)) {
+    throw new apiError(404, "Video not found");
+  }
+
+  const thumbnailLocalPath = req.file?.path;
+  let thumbnail;
+
+  if (thumbnailLocalPath) {
+    thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+
+    if (!thumbnail) {
+      throw new apiError(500, "Error in thumbnail upload");
+    }
+  }
+
+  const videoData = await Video.findByIdAndUpdate(
+    videoId,
+    {
+      $set: {
+        title: title,
+        description: description,
+        thumbnail: thumbnail?.url,
+      },
+    },
+    {
+      new: true,
+    }
+    // thumbnail: thumbnail?.url,
+  );
+
+  res
+    .status(200)
+    .json(new apiResponse(200, videoData, "Video updated successfully"));
+});
+
+const deleteVideo = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+
+  if (!isValidObjectId(videoId)) {
+    throw new apiError(404, "Video not found");
+  }
+
+  await Video.findByIdAndDelete(videoId);
+
+  res.status(200).json(new apiResponse(200, {}, "Video deleted successfully"));
+});
+
+export { uploadVideo, getVideoById, updateVideo, deleteVideo };
