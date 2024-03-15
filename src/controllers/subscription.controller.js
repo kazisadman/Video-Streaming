@@ -2,8 +2,7 @@ import mongoose, { isValidObjectId } from "mongoose";
 import { apiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Subscription } from "../models/subscription.models.js";
-import { apiResponse } from "../utils/apiResponse";
-import { User } from "../models/user.models.js";
+import { apiResponse } from "../utils/apiResponse.js";
 
 const toogleSubscription = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
@@ -13,22 +12,22 @@ const toogleSubscription = asyncHandler(async (req, res) => {
     throw new apiError(401, "Channel not found");
   }
 
-  const isSubscribed = await Subscription.find({
+  const isSubscribed = await Subscription.findOne({
     subscriber: userId,
     channel: channelId,
   });
 
   if (isSubscribed) {
-    Subscription.findByIdAndDelete(isSubscribed?._id);
+    await Subscription.findByIdAndDelete(isSubscribed?._id);
     res.status(200).json(new apiResponse(200, {}, "Channel unsubscribed"));
+  } else {
+    await Subscription.create({
+      subscriber: userId,
+      channel: channelId,
+    });
+
+    res.status(200).json(new apiResponse(200, {}, "Channel subscribed"));
   }
-
-  await Subscription.create({
-    subscriber: userId,
-    channel: channelId,
-  });
-
-  res.status(200).json(200, {}, "Channel subscribed");
 });
 
 const getChannelSubscribers = asyncHandler(async (req, res) => {
@@ -47,7 +46,7 @@ const getChannelSubscribers = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "users",
-        localField: "channel",
+        localField: "subscriber",
         foreignField: "_id",
         as: "subscribers",
       },
@@ -58,32 +57,32 @@ const getChannelSubscribers = asyncHandler(async (req, res) => {
     {
       $project: {
         _id: 0,
-        subscriber: {
-          userName: 1,
-          avatar: 1,
-          _id: 1,
-          fullName: 1,
-        },
+        fullName: "$subscribers.fullName",
+        userName: "$subscribers.userName",
+        avatar: "$subscribers.avatar",
+        _id: "$subscribers._id",
       },
     },
   ]);
 
   res
     .status(200)
-    .apiResponse(200, subscribers, "Subscribers fetched successfully");
+    .json(
+      new apiResponse(200, subscribers, "Subscribers fetched successfully")
+    );
 });
 
 const getSubscribedChannels = asyncHandler(async (req, res) => {
-  const { channelId } = req.params;
+  const { subscriberId } = req.params;
 
-  if (!isValidObjectId(channelId)) {
+  if (!isValidObjectId(subscriberId)) {
     throw new apiError(404, "Channel not found");
   }
 
   const subscribedTo = await Subscription.aggregate([
     {
       $match: {
-        subscriber: new mongoose.Types.ObjectId(channelId),
+        subscriber: new mongoose.Types.ObjectId(subscriberId),
       },
     },
     {
@@ -100,17 +99,19 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     {
       $project: {
         _id: 0,
-        subscribedTo: {
-          fullName: 1,
-          userName: 1,
-          avatar: 1,
-          _id: 1,
-        },
+        fullName: "$subscribedTo.fullName",
+        userName: "$subscribedTo.userName",
+        avatar: "$subscribedTo.avatar",
+        _id: "$subscribedTo._id",
       },
     },
   ]);
 
-  res.status(200).json(200, subscribedTo, "Subscribed channel info fetched");
+  res
+    .status(200)
+    .json(
+      new apiResponse(200, subscribedTo, "Subscribed channel info fetched")
+    );
 });
 
 export { toogleSubscription, getChannelSubscribers, getSubscribedChannels };
