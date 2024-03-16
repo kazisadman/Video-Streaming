@@ -5,6 +5,7 @@ import { apiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/fileupload.js";
 import mongoose from "mongoose";
+import { User } from "../models/user.models.js";
 
 const uploadVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
@@ -43,6 +44,69 @@ const uploadVideo = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new apiResponse(200, videoData, "Video uploaded successfully"));
+});
+
+const getAllVideo = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10, query, userId } = req.query;
+  const pipeline = [];
+
+  if (query) {
+    pipeline.push({
+      $search: {
+        index: "video-search",
+        text: {
+          query: query,
+          path: ["title"],
+        },
+      },
+    });
+  }
+
+  if (userId) {
+    if (isValidObjectId(userId) === false) {
+      throw new apiError(404, "User not found");
+    }
+
+    pipeline.push({
+      $match: new mongoose.Types.ObjectId(userId),
+    });
+  }
+
+  pipeline.push([
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "ownerdetails",
+        pipeline: [
+          {
+            $project: {
+              userName: 1,
+              avatar: 1,
+              _id: 0,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: "$ownerdetails",
+    },
+  ]);
+
+  const videoAggregate = await Video.aggregate(pipeline);
+
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+  };
+
+  const video = Video.aggregatePaginate(videoAggregate, options);
+
+  res
+    .status(200)
+    .json(new apiResponse(200, video, "Video fetched successfully"));
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
@@ -156,4 +220,5 @@ export {
   updateVideo,
   deleteVideo,
   toogleVideoPublish,
+  getAllVideo,
 };
