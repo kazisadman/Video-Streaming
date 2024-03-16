@@ -4,6 +4,7 @@ import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/fileupload.js";
+import mongoose from "mongoose";
 
 const uploadVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
@@ -47,7 +48,7 @@ const uploadVideo = asyncHandler(async (req, res) => {
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
-  if (!isValidObjectId(videoId)) {
+  if (mongoose.isValidObjectId(videoId) === false) {
     throw new apiError(404, "Video not found");
   }
 
@@ -117,4 +118,42 @@ const deleteVideo = asyncHandler(async (req, res) => {
   res.status(200).json(new apiResponse(200, {}, "Video deleted successfully"));
 });
 
-export { uploadVideo, getVideoById, updateVideo, deleteVideo };
+const toogleVideoPublish = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+
+  const videoData = await Video.findById(videoId);
+
+  if (!videoData) {
+    throw new apiError(404, "Video not found");
+  }
+
+  const video = await Video.findByIdAndUpdate(
+    videoId,
+    {
+      $set: {
+        isPublished: !videoData.isPublished,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  res
+    .status(200)
+    .json(
+      new apiResponse(
+        200,
+        {},
+        `Video ${video.isPublished ? "published" : "unpublished"} successfully`
+      )
+    );
+});
+
+export {
+  uploadVideo,
+  getVideoById,
+  updateVideo,
+  deleteVideo,
+  toogleVideoPublish,
+};
