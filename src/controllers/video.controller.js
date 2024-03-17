@@ -56,7 +56,7 @@ const getAllVideo = asyncHandler(async (req, res) => {
         index: "video-search",
         text: {
           query: query,
-          path: ["title"],
+          path: "title",
         },
       },
     });
@@ -72,7 +72,7 @@ const getAllVideo = asyncHandler(async (req, res) => {
     });
   }
 
-  pipeline.push([
+  pipeline.push(
     {
       $lookup: {
         from: "users",
@@ -92,17 +92,17 @@ const getAllVideo = asyncHandler(async (req, res) => {
     },
     {
       $unwind: "$ownerdetails",
-    },
-  ]);
+    }
+  );
 
-  const videoAggregate = await Video.aggregate(pipeline);
+  const videoAggregate = Video.aggregate(pipeline);
 
   const options = {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
   };
 
-  const video = Video.aggregatePaginate(videoAggregate, options);
+  const video = await Video.aggregatePaginate(videoAggregate, options);
 
   res
     .status(200)
