@@ -64,20 +64,37 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     {
       $match: {
         owner: new mongoose.Types.ObjectId(userId),
+        _id: new mongoose.Types.ObjectId(playlistId),
         video: {
-          $in: [mongoose.Types.ObjectId(videoId)],
+          $in: [new mongoose.Types.ObjectId(videoId)],
         },
       },
     },
   ]);
-
+  console.log(selectedVideoExist);
   if (selectedVideoExist.length > 0) {
     throw new apiError(400, "Video already exist");
   }
 
-  
+  const addVideo = await Playlist.findByIdAndUpdate(
+    playlistId,
+    {
+      $push: {
+        video: videoId,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  res
+    .status(200)
+    .json(
+      new apiResponse(200, addVideo, "Video added to playlist successfully")
+    );
 });
 
 //65f45403af89a4b8f2f599c2
 
-export { createPlayList, getUserPlaylist, getPlaylistById };
+export { createPlayList, getUserPlaylist, getPlaylistById, addVideoToPlaylist };
