@@ -49,7 +49,55 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     throw new apiError(404, "playlist not found");
   }
 
-  const playlist = await Playlist.findById(playlistId);
+  const playlist = await Playlist.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(playlistId),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "video",
+        foreignField: "_id",
+        as: "video",
+      },
+    },
+    {
+      $match: {
+        "video.isPublished": true,
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+      },
+    },
+    {
+      $project: {
+        name: 1,
+        description: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        video: {
+          _id: 1,
+          title: 1,
+          description: 1,
+          thumbnail: 1,
+          duration: 1,
+          videoFile: 1,
+        },
+        owner: {
+          userName: 1,
+          fullName: 1,
+          avatar: 1,
+        },
+      },
+    },
+  ]);
 
   res
     .status(200)
@@ -94,7 +142,5 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
       new apiResponse(200, addVideo, "Video added to playlist successfully")
     );
 });
-
-//65f45403af89a4b8f2f599c2
 
 export { createPlayList, getUserPlaylist, getPlaylistById, addVideoToPlaylist };
