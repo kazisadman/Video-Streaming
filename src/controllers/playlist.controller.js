@@ -112,7 +112,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     throw new apiError(404, "Video or Playlist not found");
   }
 
-  const playlist = Playlist.findById(playlist);
+  const playlist = await Playlist.findById(playlistId);
 
   if (!playlist.owner.equals(userId)) {
     throw new apiError(401, "Unauthorized request");
@@ -160,17 +160,85 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     throw new apiError(404, "Video or Playlist not found");
   }
 
+  const playlist = await Playlist.findById(playlistId);
+
+  if (!playlist.owner.equals(userId)) {
+    throw new apiError(401, "Unauthorized request");
+  }
+
+  await Playlist.findByIdAndUpdate(
+    playlistId,
+    {
+      $pull: { video: videoId },
+    },
+    {
+      new: true,
+    }
+  );
+
+  res
+    .status(200)
+    .json(new apiResponse(200, {}, "Video deleted from playlist successfully"));
+});
+
+const deletePlaylist = asyncHandler(async (req, res) => {
+  const { playlistId } = req.params;
+  const userId = req.user?._id;
+
+  if (!isValidObjectId(playlistId)) {
+    throw new apiError(404, " Playlist not found");
+  }
+
   const playlist = Playlist.findById(playlist);
 
   if (!playlist.owner.equals(userId)) {
     throw new apiError(401, "Unauthorized request");
   }
 
-  await Playlist.findByIdAndDelete(videoId);
+  await Playlist.findByIdAndDelete(playlistId);
 
   res
     .status(200)
-    .json(new apiResponse(200, {}, "Video deleted from playlist successfully"));
+    .json(new apiResponse(200, {}, "Playlist deleted successfully"));
+});
+
+const updatePlaylist = asyncHandler(async (req, res) => {
+  const { name, description } = req.body;
+  const { playlistId } = req.params;
+  const userId = req.user?._id;
+
+  if (!isValidObjectId(playlistId)) {
+    throw new apiError(404, " Playlist not found");
+  }
+
+  const playlist = await Playlist.findById(playlistId);
+
+  if (!playlist.owner.equals(userId)) {
+    throw new apiError(401, "Unauthorized request");
+  }
+
+  if (name === "" && description === "") {
+    throw new apiError(400, "Title and description is empty");
+  }
+
+  const updatedPlaylist = await Playlist.findByIdAndUpdate(
+    playlistId,
+    {
+      $set: {
+        name: name,
+        description: description,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  res
+    .status(200)
+    .json(
+      new apiResponse(200, updatedPlaylist, "Playlist updated successfully")
+    );
 });
 
 export {
@@ -179,4 +247,6 @@ export {
   getPlaylistById,
   addVideoToPlaylist,
   removeVideoFromPlaylist,
+  deletePlaylist,
+  updatePlaylist,
 };
