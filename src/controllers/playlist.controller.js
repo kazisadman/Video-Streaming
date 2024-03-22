@@ -108,6 +108,16 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
   const { videoId, playlistId } = req.params;
 
+  if (!isValidObjectId(videoId) || !isValidObjectId(playlistId)) {
+    throw new apiError(404, "Video or Playlist not found");
+  }
+
+  const playlist = Playlist.findById(playlist);
+
+  if (!playlist.owner.equals(userId)) {
+    throw new apiError(401, "Unauthorized request");
+  }
+
   const selectedVideoExist = await Playlist.aggregate([
     {
       $match: {
@@ -119,7 +129,6 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  console.log(selectedVideoExist);
   if (selectedVideoExist.length > 0) {
     throw new apiError(400, "Video already exist");
   }
@@ -143,4 +152,31 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     );
 });
 
-export { createPlayList, getUserPlaylist, getPlaylistById, addVideoToPlaylist };
+const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
+  const { playlistId, videoId } = req.params;
+  const userId = req.user?._id;
+
+  if (!isValidObjectId(videoId) || !isValidObjectId(playlistId)) {
+    throw new apiError(404, "Video or Playlist not found");
+  }
+
+  const playlist = Playlist.findById(playlist);
+
+  if (!playlist.owner.equals(userId)) {
+    throw new apiError(401, "Unauthorized request");
+  }
+
+  await Playlist.findByIdAndDelete(videoId);
+
+  res
+    .status(200)
+    .json(new apiResponse(200, {}, "Video deleted from playlist successfully"));
+});
+
+export {
+  createPlayList,
+  getUserPlaylist,
+  getPlaylistById,
+  addVideoToPlaylist,
+  removeVideoFromPlaylist,
+};
