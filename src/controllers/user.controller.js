@@ -6,6 +6,24 @@ import { apiResponse } from "../utils/apiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
+const generateAccessAndRefreshToken = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refresh_token = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new apiError(
+      500,
+      "Something went wrong while generating access and refresh token!"
+    );
+  }
+};
+
 // Registers a user with Cloudinary. This is the entry point for user registration
 const registerUser = asyncHandler(async (req, res) => {
   const { fullName, email, userName, password } = req.body;
@@ -70,27 +88,10 @@ const registerUser = asyncHandler(async (req, res) => {
 // Logs in user with the given username or email and password. This is the entry point for API calls
 const loginUser = asyncHandler(async (req, res) => {
   // Generates access and refresh tokens for the user with the given ID.
-  const generateAccessAndRefreshToken = async (userId) => {
-    try {
-      const user = await User.findById(userId);
-      const accessToken = user.generateAccessToken();
-      const refreshToken = user.generateRefreshToken();
-
-      user.refresh_token = refreshToken;
-      await user.save({ validateBeforeSave: false });
-
-      return { accessToken, refreshToken };
-    } catch (error) {
-      throw new apiError(
-        500,
-        "Something went wrong while generating access and refresh token!"
-      );
-    }
-  };
 
   // Given a username or email and password find the user in the database and return it. If there is no match return 404
   const { email, password, userName } = req.body;
-
+  console.log(email, userName, password);
   if (!(userName || email)) {
     throw new apiError(400, "Username or Email is missing");
   } else if (!password) {
@@ -124,6 +125,7 @@ const loginUser = asyncHandler(async (req, res) => {
   const options = {
     httpOnly: true,
     secure: true,
+    sameSite: "None",
   };
 
   // Send response to user. This is called when user logs in successfully
@@ -203,6 +205,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     const options = {
       httpOnly: true,
       secure: true,
+      sameSite: "None",
     };
 
     res
