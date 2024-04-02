@@ -414,7 +414,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
   ]);
 
   if (!channelInfo?.length) {
-    throw apiError(400, "Channel not found.");
+    throw new apiError(400, "Channel not found.");
   }
 
   res
@@ -446,7 +446,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
               from: "users",
               localField: "owner",
               foreignField: "_id",
-              as: "owner",
+              as: "ownerdetails",
               pipeline: [
                 {
                   $project: {
@@ -458,12 +458,15 @@ const getWatchHistory = asyncHandler(async (req, res) => {
                 {
                   $addFields: {
                     owner: {
-                      $first: "$owner",
+                      $first: "$ownerdetails",
                     },
                   },
                 },
               ],
             },
+          },
+          {
+            $unwind: "$ownerdetails",
           },
         ],
       },

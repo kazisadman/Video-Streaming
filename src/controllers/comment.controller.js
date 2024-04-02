@@ -9,12 +9,11 @@ const getAllComment = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   const { videoId } = req.params;
 
-
-  if (!isValidObjectId(videoId) ) {
+  if (!isValidObjectId(videoId)) {
     throw new apiError(404, "Video not found");
   }
 
-  const commentAggregate = await Comment.aggregate([
+  const commentAggregate =  Comment.aggregate([
     {
       $match: {
         video: new mongoose.Types.ObjectId(videoId),
@@ -25,30 +24,29 @@ const getAllComment = asyncHandler(async (req, res) => {
         from: "users",
         localField: "owner",
         foreignField: "_id",
-        as: "ownerdetails",
+        as: "owner",
         pipeline: [
           {
             $project: {
-              userName: 1,
-              avatar: 1,
               _id: 0,
+              avatar: 1,
+              fullName: 1,
+              userName: 1,
             },
           },
         ],
       },
     },
     {
-      $unwind: "$ownerdetails",
+      $unwind: "$owner",
     },
   ]);
-
   const options = {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
   };
 
   const comment = await Comment.aggregatePaginate(commentAggregate, options);
-
   res
     .status(200)
     .json(new apiResponse(200, comment, "Comment fetched successfully"));

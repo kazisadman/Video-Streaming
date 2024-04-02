@@ -9,7 +9,7 @@ import {
 const router = Router();
 
 router.use(verifyJWT);
-
+ 
 router
   .route("/channel/:channelId")
   .post(toogleSubscription)

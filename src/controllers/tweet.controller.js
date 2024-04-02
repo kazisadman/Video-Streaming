@@ -9,7 +9,7 @@ const createTweet = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
 
   if (!content || !userId) {
-    throw new apiError(400, "Content is empty");
+    throw new apiError(400, "Content or userId is empty");
   }
 
   const tweet = await Tweet.create({
@@ -30,11 +30,9 @@ const getTweet = asyncHandler(async (req, res) => {
   if (!userId) {
     throw new apiError(400, "User id missing");
   }
-
   const tweet = await Tweet.find({
     owner: new mongoose.Types.ObjectId(userId),
   });
-  console.log(tweet);
 
   if (!tweet) {
     throw new apiError(404, "No tweets available");
