@@ -54,7 +54,7 @@ const getAllVideo = asyncHandler(async (req, res) => {
       $search: {
         index: "video-search",
         text: {
-          query: query,
+          query: query.querytext,
           path: "title",
         },
       },
@@ -72,6 +72,8 @@ const getAllVideo = asyncHandler(async (req, res) => {
       },
     });
   }
+
+  pipeline.push({ $match: { isPublished: true } });
 
   pipeline.push(
     {
@@ -120,6 +122,11 @@ const getVideoById = asyncHandler(async (req, res) => {
     {
       $match: {
         _id: new mongoose.Types.ObjectId(videoId),
+      },
+    },
+    {
+      $match: {
+        isPublished: true,
       },
     },
     {
