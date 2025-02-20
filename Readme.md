@@ -1,3 +1,4 @@
+Client Side Link - [https://streamu-f3c2f.web.app/](https://github.com/kazisadman/video-streaming-client)
 
 # streamU- A video sharing web app
 
